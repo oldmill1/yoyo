@@ -105,66 +105,81 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         overlayWindow?.orderOut(nil)
         overlayWindow = nil
         
-        let padding: CGFloat = 16
-        let maxWidth: CGFloat = 450
+        let displayMessage = output.trimmingCharacters(in: .whitespacesAndNewlines).uppercased()
         
-        // Determine if success or failure
-        let isSuccess = status == 0
-        let symbol = isSuccess ? "✓" : "⚠"
-        let symbolColor = isSuccess ? NSColor.systemGreen : NSColor.systemYellow
+        // Get screen dimensions for full-screen overlay
+        guard let screen = NSScreen.main else { return }
+        let screenFrame = screen.frame
         
-        let displayMessage = output.trimmingCharacters(in: .whitespacesAndNewlines)
-        
-        // Create window
+        // Create full-screen window
         let window = NSWindow(
-            contentRect: NSRect(x: 0, y: 0, width: maxWidth, height: 100),
+            contentRect: screenFrame,
             styleMask: [.borderless],
             backing: .buffered,
             defer: false
         )
         window.isOpaque = false
         window.backgroundColor = .clear
-        window.level = .statusBar
-        window.hasShadow = true
+        window.level = .screenSaver
+        window.hasShadow = false
+        window.ignoresMouseEvents = true
         
-        // Container with rounded corners
-        let container = NSView(frame: NSRect(x: 0, y: 0, width: maxWidth, height: 100))
+        // Main container view
+        let container = NSView(frame: screenFrame)
         container.wantsLayer = true
-        container.layer?.backgroundColor = NSColor.windowBackgroundColor.withAlphaComponent(0.95).cgColor
-        container.layer?.cornerRadius = 12
+        container.layer?.backgroundColor = NSColor.clear.cgColor
         window.contentView = container
         
-        // Symbol label
-        let symbolLabel = NSTextField(labelWithString: symbol)
-        symbolLabel.font = NSFont.systemFont(ofSize: 20, weight: .semibold)
-        symbolLabel.textColor = symbolColor
-        symbolLabel.frame = NSRect(x: padding, y: 0, width: 30, height: 100)
-        container.addSubview(symbolLabel)
+        // Semi-transparent slate background for text area
+        let backgroundHeight = screenFrame.height * 0.6
+        let backgroundY = (screenFrame.height - backgroundHeight) / 2
+        let backgroundView = NSView(frame: NSRect(x: 0, y: backgroundY, width: screenFrame.width, height: backgroundHeight))
+        backgroundView.wantsLayer = true
+        backgroundView.layer?.backgroundColor = NSColor.systemGray.withAlphaComponent(0.15).cgColor
+        backgroundView.layer?.cornerRadius = 20
+        container.addSubview(backgroundView)
         
-        // Message label
+        // Retro terminal style text label
         let messageLabel = NSTextField(labelWithString: displayMessage)
-        messageLabel.font = NSFont.systemFont(ofSize: 13, weight: .regular)
-        messageLabel.textColor = .labelColor
-        messageLabel.alignment = .left
-        messageLabel.maximumNumberOfLines = 6
+        messageLabel.font = NSFont.monospacedSystemFont(ofSize: 80, weight: .heavy)
+        messageLabel.textColor = NSColor.systemGreen.withAlphaComponent(0.85)
+        messageLabel.alignment = .center
+        messageLabel.backgroundColor = .clear
+        messageLabel.isBordered = false
+        messageLabel.isEditable = false
+        messageLabel.isSelectable = false
+        messageLabel.cell?.wraps = true
+        messageLabel.cell?.isScrollable = false
+        messageLabel.maximumNumberOfLines = 0
         messageLabel.lineBreakMode = .byWordWrapping
-        messageLabel.preferredMaxLayoutWidth = maxWidth - padding * 2 - 40
-        messageLabel.frame = NSRect(x: padding + 34, y: padding, width: maxWidth - padding * 2 - 40, height: 0)
-        messageLabel.sizeToFit()
+        
+        // Calculate text size with wrapping
+        let maxTextWidth = screenFrame.width * 0.8
+        let maxTextHeight = screenFrame.height * 0.5
+        let textSize = messageLabel.sizeThatFits(NSSize(width: maxTextWidth, height: maxTextHeight))
+        
+        // Adjust font size if text is too large
+        var fontSize: CGFloat = 80
+        var adjustedSize = textSize
+        while (adjustedSize.width > maxTextWidth || adjustedSize.height > maxTextHeight) && fontSize > 30 {
+            fontSize -= 5
+            messageLabel.font = NSFont.monospacedSystemFont(ofSize: fontSize, weight: .heavy)
+            adjustedSize = messageLabel.sizeThatFits(NSSize(width: maxTextWidth, height: maxTextHeight))
+        }
+        
+        // Center the text on screen
+        let finalTextSize = messageLabel.sizeThatFits(NSSize(width: maxTextWidth, height: maxTextHeight))
+        let textX = (screenFrame.width - finalTextSize.width) / 2
+        let textY = (screenFrame.height - finalTextSize.height) / 2
+        messageLabel.frame = NSRect(x: textX, y: textY, width: finalTextSize.width, height: finalTextSize.height)
+        
+        // Add subtle glow effect
+        messageLabel.shadow = NSShadow()
+        messageLabel.shadow?.shadowColor = NSColor.systemGreen.withAlphaComponent(0.4)
+        messageLabel.shadow?.shadowBlurRadius = 15
+        messageLabel.shadow?.shadowOffset = NSSize(width: 0, height: 0)
+        
         container.addSubview(messageLabel)
-        
-        // Resize window to fit content
-        let windowHeight = messageLabel.frame.height + padding * 2
-        let windowWidth = messageLabel.frame.width + padding * 2 + 40
-        
-        guard let screen = NSScreen.main else { return }
-        let windowX = (screen.frame.width - windowWidth) / 2
-        let windowY = screen.frame.height - windowHeight - 60
-        
-        window.setFrame(NSRect(x: windowX, y: windowY, width: windowWidth, height: windowHeight), display: false)
-        container.frame = NSRect(x: 0, y: 0, width: windowWidth, height: windowHeight)
-        symbolLabel.frame = NSRect(x: padding, y: (windowHeight - 24) / 2, width: 30, height: 24)
-        messageLabel.frame = NSRect(x: padding + 34, y: (windowHeight - messageLabel.frame.height) / 2, width: messageLabel.frame.width, height: messageLabel.frame.height)
         
         overlayWindow = window
         
@@ -173,21 +188,21 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         window.orderFrontRegardless()
         
         NSAnimationContext.runAnimationGroup { context in
-            context.duration = 0.2
+            context.duration = 0.3
             window.animator().alphaValue = 1
         }
         
-        // Schedule fade out
-        fadeTimer = Timer.scheduledTimer(withTimeInterval: 3.0, repeats: false) { [weak self] _ in
-            guard let self = self, let window = self.overlayWindow else { return }
-            NSAnimationContext.runAnimationGroup({ context in
-                context.duration = 0.3
-                window.animator().alphaValue = 0
-            }, completionHandler: {
-                self.overlayWindow?.orderOut(nil)
-                self.overlayWindow = nil
-            })
-        }
+        // Schedule fade out - DISABLED for persistent overlay
+        // fadeTimer = Timer.scheduledTimer(withTimeInterval: 2.5, repeats: false) { [weak self] _ in
+        //     guard let self = self, let window = self.overlayWindow else { return }
+        //     NSAnimationContext.runAnimationGroup({ context in
+        //         context.duration = 0.5
+        //         window.animator().alphaValue = 0
+        //     }, completionHandler: {
+        //         self.overlayWindow?.orderOut(nil)
+        //         self.overlayWindow = nil
+        //     })
+        // }
     }
 }
 
