@@ -132,17 +132,18 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         
         // Semi-transparent slate background for text area
         let backgroundHeight = screenFrame.height * 0.6
-        let backgroundY = (screenFrame.height - backgroundHeight) / 2
+        let backgroundY = screenFrame.height * 0.75 - (backgroundHeight / 2) // Position at 75% of screen height
         let backgroundView = NSView(frame: NSRect(x: 0, y: backgroundY, width: screenFrame.width, height: backgroundHeight))
         backgroundView.wantsLayer = true
-        backgroundView.layer?.backgroundColor = NSColor.systemGray.withAlphaComponent(0.15).cgColor
-        backgroundView.layer?.cornerRadius = 20
+        backgroundView.layer?.backgroundColor = NSColor.black.withAlphaComponent(0.7).cgColor
+        backgroundView.layer?.cornerRadius = 0
+        backgroundView.layer?.borderWidth = 0
         container.addSubview(backgroundView)
         
-        // Retro terminal style text label
+        // Modern sans-serif text label
         let messageLabel = NSTextField(labelWithString: displayMessage)
-        messageLabel.font = NSFont.monospacedSystemFont(ofSize: 80, weight: .heavy)
-        messageLabel.textColor = NSColor.systemGreen.withAlphaComponent(0.85)
+        messageLabel.font = NSFont.systemFont(ofSize: 60, weight: .light)
+        messageLabel.textColor = NSColor.white
         messageLabel.alignment = .center
         messageLabel.backgroundColor = .clear
         messageLabel.isBordered = false
@@ -159,25 +160,22 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         let textSize = messageLabel.sizeThatFits(NSSize(width: maxTextWidth, height: maxTextHeight))
         
         // Adjust font size if text is too large
-        var fontSize: CGFloat = 80
+        var fontSize: CGFloat = 60
         var adjustedSize = textSize
-        while (adjustedSize.width > maxTextWidth || adjustedSize.height > maxTextHeight) && fontSize > 30 {
+        while (adjustedSize.width > maxTextWidth || adjustedSize.height > maxTextHeight) && fontSize > 20 {
             fontSize -= 5
-            messageLabel.font = NSFont.monospacedSystemFont(ofSize: fontSize, weight: .heavy)
+            messageLabel.font = NSFont.systemFont(ofSize: fontSize, weight: .light)
             adjustedSize = messageLabel.sizeThatFits(NSSize(width: maxTextWidth, height: maxTextHeight))
         }
         
         // Center the text on screen
         let finalTextSize = messageLabel.sizeThatFits(NSSize(width: maxTextWidth, height: maxTextHeight))
         let textX = (screenFrame.width - finalTextSize.width) / 2
-        let textY = (screenFrame.height - finalTextSize.height) / 2
+        let textY = screenFrame.height * 0.75 - (finalTextSize.height / 2) // Position at 75% of screen height
         messageLabel.frame = NSRect(x: textX, y: textY, width: finalTextSize.width, height: finalTextSize.height)
         
-        // Add subtle glow effect
-        messageLabel.shadow = NSShadow()
-        messageLabel.shadow?.shadowColor = NSColor.systemGreen.withAlphaComponent(0.4)
-        messageLabel.shadow?.shadowBlurRadius = 15
-        messageLabel.shadow?.shadowOffset = NSSize(width: 0, height: 0)
+        // Remove shadow for cleaner modal look
+        messageLabel.shadow = nil
         
         container.addSubview(messageLabel)
         
@@ -192,17 +190,17 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             window.animator().alphaValue = 1
         }
         
-        // Schedule fade out - DISABLED for persistent overlay
-        // fadeTimer = Timer.scheduledTimer(withTimeInterval: 2.5, repeats: false) { [weak self] _ in
-        //     guard let self = self, let window = self.overlayWindow else { return }
-        //     NSAnimationContext.runAnimationGroup({ context in
-        //         context.duration = 0.5
-        //         window.animator().alphaValue = 0
-        //     }, completionHandler: {
-        //         self.overlayWindow?.orderOut(nil)
-        //         self.overlayWindow = nil
-        //     })
-        // }
+        // Schedule fade out
+        fadeTimer = Timer.scheduledTimer(withTimeInterval: 2.5, repeats: false) { [weak self] _ in
+            guard let self = self, let window = self.overlayWindow else { return }
+            NSAnimationContext.runAnimationGroup({ context in
+                context.duration = 0.5
+                window.animator().alphaValue = 0
+            }, completionHandler: {
+                self.overlayWindow?.orderOut(nil)
+                self.overlayWindow = nil
+            })
+        }
     }
 }
 
