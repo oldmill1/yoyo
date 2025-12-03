@@ -105,45 +105,45 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         overlayWindow?.orderOut(nil)
         overlayWindow = nil
         
-        let displayMessage = output.trimmingCharacters(in: .whitespacesAndNewlines).uppercased()
+        let displayMessage = output.trimmingCharacters(in: .whitespacesAndNewlines)
         
-        // Get screen dimensions for full-screen overlay
+        // Get screen dimensions
         guard let screen = NSScreen.main else { return }
         let screenFrame = screen.frame
         
-        // Create full-screen window
+        // Toast dimensions and position (top-right corner)
+        let toastWidth: CGFloat = 250
+        let toastHeight: CGFloat = 60
+        let margin: CGFloat = 20
+        let toastX = screenFrame.width - toastWidth - margin
+        let toastY = screenFrame.height - toastHeight - margin
+        
+        // Create small window for toast
         let window = NSWindow(
-            contentRect: screenFrame,
+            contentRect: NSRect(x: toastX, y: toastY, width: toastWidth, height: toastHeight),
             styleMask: [.borderless],
             backing: .buffered,
             defer: false
         )
         window.isOpaque = false
         window.backgroundColor = .clear
-        window.level = .screenSaver
-        window.hasShadow = false
+        window.level = .floating
+        window.hasShadow = true
         window.ignoresMouseEvents = true
         
-        // Main container view
-        let container = NSView(frame: screenFrame)
-        container.wantsLayer = true
-        container.layer?.backgroundColor = NSColor.clear.cgColor
-        window.contentView = container
+        // Retro toast background
+        let toastView = NSView(frame: NSRect(x: 0, y: 0, width: toastWidth, height: toastHeight))
+        toastView.wantsLayer = true
+        toastView.layer?.backgroundColor = NSColor.black.cgColor
+        toastView.layer?.cornerRadius = 8
+        toastView.layer?.borderWidth = 2
+        toastView.layer?.borderColor = NSColor.white.cgColor
+        window.contentView = toastView
         
-        // Semi-transparent slate background for text area
-        let backgroundHeight = screenFrame.height * 0.6
-        let backgroundY = screenFrame.height * 0.75 - (backgroundHeight / 2) // Position at 75% of screen height
-        let backgroundView = NSView(frame: NSRect(x: 0, y: backgroundY, width: screenFrame.width, height: backgroundHeight))
-        backgroundView.wantsLayer = true
-        backgroundView.layer?.backgroundColor = NSColor.black.withAlphaComponent(0.7).cgColor
-        backgroundView.layer?.cornerRadius = 0
-        backgroundView.layer?.borderWidth = 0
-        container.addSubview(backgroundView)
-        
-        // Modern sans-serif text label
+        // Retro text label
         let messageLabel = NSTextField(labelWithString: displayMessage)
-        messageLabel.font = NSFont.systemFont(ofSize: 60, weight: .light)
-        messageLabel.textColor = NSColor.white
+        messageLabel.font = NSFont.monospacedSystemFont(ofSize: 11, weight: .medium)
+        messageLabel.textColor = NSColor.green
         messageLabel.alignment = .center
         messageLabel.backgroundColor = .clear
         messageLabel.isBordered = false
@@ -151,33 +151,13 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         messageLabel.isSelectable = false
         messageLabel.cell?.wraps = true
         messageLabel.cell?.isScrollable = false
-        messageLabel.maximumNumberOfLines = 0
-        messageLabel.lineBreakMode = .byWordWrapping
+        messageLabel.maximumNumberOfLines = 3
+        messageLabel.lineBreakMode = .byTruncatingTail
         
-        // Calculate text size with wrapping
-        let maxTextWidth = screenFrame.width * 0.8
-        let maxTextHeight = screenFrame.height * 0.5
-        let textSize = messageLabel.sizeThatFits(NSSize(width: maxTextWidth, height: maxTextHeight))
+        // Center text in toast
+        messageLabel.frame = NSRect(x: 10, y: 10, width: toastWidth - 20, height: toastHeight - 20)
         
-        // Adjust font size if text is too large
-        var fontSize: CGFloat = 60
-        var adjustedSize = textSize
-        while (adjustedSize.width > maxTextWidth || adjustedSize.height > maxTextHeight) && fontSize > 20 {
-            fontSize -= 5
-            messageLabel.font = NSFont.systemFont(ofSize: fontSize, weight: .light)
-            adjustedSize = messageLabel.sizeThatFits(NSSize(width: maxTextWidth, height: maxTextHeight))
-        }
-        
-        // Center the text on screen
-        let finalTextSize = messageLabel.sizeThatFits(NSSize(width: maxTextWidth, height: maxTextHeight))
-        let textX = (screenFrame.width - finalTextSize.width) / 2
-        let textY = screenFrame.height * 0.75 - (finalTextSize.height / 2) // Position at 75% of screen height
-        messageLabel.frame = NSRect(x: textX, y: textY, width: finalTextSize.width, height: finalTextSize.height)
-        
-        // Remove shadow for cleaner modal look
-        messageLabel.shadow = nil
-        
-        container.addSubview(messageLabel)
+        toastView.addSubview(messageLabel)
         
         overlayWindow = window
         
@@ -186,15 +166,15 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         window.orderFrontRegardless()
         
         NSAnimationContext.runAnimationGroup { context in
-            context.duration = 0.3
+            context.duration = 0.2
             window.animator().alphaValue = 1
         }
         
         // Schedule fade out
-        fadeTimer = Timer.scheduledTimer(withTimeInterval: 2.5, repeats: false) { [weak self] _ in
+        fadeTimer = Timer.scheduledTimer(withTimeInterval: 3.0, repeats: false) { [weak self] _ in
             guard let self = self, let window = self.overlayWindow else { return }
             NSAnimationContext.runAnimationGroup({ context in
-                context.duration = 0.5
+                context.duration = 0.3
                 window.animator().alphaValue = 0
             }, completionHandler: {
                 self.overlayWindow?.orderOut(nil)
